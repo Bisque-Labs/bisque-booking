@@ -195,6 +195,28 @@ async def logout():
     return response
 
 
+@router.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    from app.templates_env import get_templates
+    templates = get_templates()
+    error = request.query_params.get("error")
+    return templates.TemplateResponse("pages/login.html", {"request": request, "error": error})
+
+
+@router.post("/login-form")
+async def login_form(request: Request, db: DbSession):
+    """HTML form-based login (no-JS compatible)."""
+    form = await request.form()
+    email = str(form.get("email", ""))
+    password = str(form.get("password", ""))
+
+    result = await db.execute(select(User).where(User.email == email, User.is_active == True))
+    user = result.scalar_one_or_none()
+    if not user or not user.hashed_password or not verify_password(password, user.hashed_password):
+        return RedirectResponse(url="/auth/login?error=Invalid+email+or+password", status_code=303)
+    return _set_session_cookie(user)
+
+
 @router.get("/me")
 async def me(user: CurrentUser):
     return {

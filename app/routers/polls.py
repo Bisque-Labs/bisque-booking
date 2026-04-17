@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from app.templates_env import get_templates
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -18,7 +18,7 @@ from app.services.auth import generate_token
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/polls", tags=["polls"])
-templates = Jinja2Templates(directory="app/templates")
+templates = get_templates()
 
 
 # ---------------------------------------------------------------------------

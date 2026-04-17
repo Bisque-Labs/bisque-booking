@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from app.templates_env import get_templates
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
@@ -21,7 +21,7 @@ from app.services.auth import hash_password
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-templates = Jinja2Templates(directory="app/templates")
+templates = get_templates()
 
 
 # ---------------------------------------------------------------------------

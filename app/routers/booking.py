@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from app.templates_env import get_templates
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -23,7 +23,7 @@ from app.services.ics import generate_ics
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["booking"])
-templates = Jinja2Templates(directory="app/templates")
+templates = get_templates()
 
 
 # ---------------------------------------------------------------------------
