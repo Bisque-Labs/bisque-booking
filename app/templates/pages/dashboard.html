@@ -9,10 +9,11 @@
   </a>
 </div>
 
+<!-- Upcoming bookings -->
 <section class="mb-10">
   <h2 class="text-lg font-semibold mb-4">Upcoming bookings</h2>
   {% if not upcoming %}
-    <p class="text-gray-400">No upcoming bookings.</p>
+    <p class="text-gray-400 text-sm">No upcoming bookings.</p>
   {% else %}
     <div class="space-y-3">
       {% for b in upcoming %}
@@ -20,10 +21,16 @@
         <div>
           <p class="font-medium">{{ b.client_name }}</p>
           <p class="text-sm text-gray-500">{{ b.client_email }}</p>
+          {% if b.event_type %}
+          <p class="text-xs text-gray-400 mt-0.5">{{ b.event_type.title }}</p>
+          {% endif %}
         </div>
         <div class="text-right text-sm">
           <p class="font-medium">{{ b.start_at.strftime('%b %d, %Y') }}</p>
           <p class="text-gray-500">{{ b.start_at.strftime('%I:%M %p') }} UTC</p>
+          <a href="/bookings/{{ b.cancel_token }}/cancel"
+             class="text-xs text-red-400 hover:underline"
+             onclick="return confirm('Cancel this booking?')">Cancel</a>
         </div>
       </div>
       {% endfor %}
@@ -31,48 +38,190 @@
   {% endif %}
 </section>
 
+<!-- Event types -->
+<section class="mb-10">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold">Event types</h2>
+    <button onclick="showEventTypeForm()"
+            class="text-sm bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition">
+      + New event type
+    </button>
+  </div>
+
+  <!-- Create / Edit form -->
+  <div id="et-form-panel" class="hidden border rounded-xl p-5 bg-white mb-4">
+    <h3 id="et-form-title" class="text-base font-semibold mb-4">New event type</h3>
+    <form id="et-form" class="space-y-3">
+      <input type="hidden" id="et-id" value="" />
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Title *</label>
+          <input id="et-title" type="text" required placeholder="30-min call"
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">URL slug *</label>
+          <input id="et-slug" type="text" required placeholder="30-min-call"
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Duration (min)</label>
+          <input id="et-duration" type="number" min="5" step="5" value="30"
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Buffer after (min)</label>
+          <input id="et-buffer" type="number" min="0" step="5" value="0"
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Min notice (hours)</label>
+          <input id="et-notice" type="number" min="0" value="1"
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Max horizon (days)</label>
+          <input id="et-horizon" type="number" min="1" value="30"
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Color</label>
+          <input id="et-color" type="color" value="#2563eb"
+                 class="w-full h-9 border rounded-lg px-1 py-1 text-sm cursor-pointer" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Video link (optional)</label>
+          <input id="et-video" type="url" placeholder="https://meet.google.com/..."
+                 class="w-full border rounded-lg px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-600 mb-1">Description</label>
+        <textarea id="et-description" rows="2" placeholder="Brief description for clients…"
+                  class="w-full border rounded-lg px-3 py-2 text-sm resize-none"></textarea>
+      </div>
+      <div class="flex gap-2 pt-1">
+        <button type="submit"
+                class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+          Save
+        </button>
+        <button type="button" onclick="hideEventTypeForm()"
+                class="border px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition">
+          Cancel
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Event type list -->
+  <div id="et-list" class="space-y-2">
+    <p class="text-sm text-gray-400" id="et-empty-msg">Loading…</p>
+  </div>
+</section>
+
+<!-- Availability -->
 <section class="mb-10">
   <div class="flex items-center justify-between mb-4">
     <h2 class="text-lg font-semibold">Availability</h2>
-    <button onclick="document.getElementById('avail-form').classList.toggle('hidden')"
-            class="text-sm text-blue-600 hover:underline">Edit</button>
+    <button onclick="toggleAvailForm()"
+            class="text-sm text-blue-600 hover:underline" id="avail-toggle-btn">Edit</button>
   </div>
-  <div id="avail-form" class="hidden border rounded-xl p-4 bg-white">
-    <p class="text-sm text-gray-500 mb-4">
-      Set your regular availability windows. Times are in your timezone ({{ user.timezone }}).
-    </p>
-    <div id="avail-rules" class="space-y-2"></div>
-    <button onclick="addRule()"
-            class="mt-3 text-sm text-blue-600 hover:underline">+ Add window</button>
-    <button onclick="saveAvailability()"
-            class="mt-4 block w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
-      Save availability
-    </button>
-  </div>
-</section>
 
-<section>
-  <div class="flex items-center justify-between mb-4">
-    <h2 class="text-lg font-semibold">Event types</h2>
+  <!-- Summary (read-only) -->
+  <div id="avail-summary" class="border rounded-xl p-4 bg-white">
+    <p class="text-sm text-gray-400" id="avail-summary-text">Loading…</p>
   </div>
-  <p class="text-sm text-gray-400">Manage event types via the API or admin dashboard.</p>
+
+  <!-- Edit form -->
+  <div id="avail-form" class="hidden border rounded-xl p-5 bg-white mt-2">
+    <p class="text-sm text-gray-500 mb-4">
+      Set your regular availability windows. Times are in your timezone
+      (<strong>{{ user.timezone }}</strong>).
+    </p>
+    <div id="avail-rules" class="space-y-2 mb-3"></div>
+    <button onclick="addRule()"
+            class="text-sm text-blue-600 hover:underline">+ Add window</button>
+    <div class="flex gap-2 mt-4">
+      <button onclick="saveAvailability()"
+              class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+        Save availability
+      </button>
+      <button onclick="toggleAvailForm()"
+              class="border px-4 py-2 rounded-lg text-sm hover:bg-gray-50 transition">
+        Cancel
+      </button>
+    </div>
+  </div>
 </section>
 
 <script>
+const USER_TZ = "{{ user.timezone }}";
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
-function addRule() {
+// -----------------------------------------------------------------------
+// Availability
+// -----------------------------------------------------------------------
+
+let savedRules = [];
+
+async function loadAvailability() {
+  try {
+    const resp = await fetch("/dashboard/availability");
+    if (!resp.ok) throw new Error();
+    savedRules = await resp.json();
+    renderAvailSummary();
+  } catch {
+    document.getElementById("avail-summary-text").textContent = "Could not load availability.";
+  }
+}
+
+function renderAvailSummary() {
+  const el = document.getElementById("avail-summary-text");
+  if (!savedRules.length) {
+    el.textContent = "No availability set. Click Edit to add windows.";
+    return;
+  }
+  const lines = savedRules.map(r =>
+    `${DAYS[r.day_of_week]}: ${r.start_time.slice(0,5)} – ${r.end_time.slice(0,5)}`
+  );
+  el.innerHTML = lines.join("<br>");
+}
+
+function toggleAvailForm() {
+  const form = document.getElementById("avail-form");
+  const summary = document.getElementById("avail-summary");
+  const btn = document.getElementById("avail-toggle-btn");
+  const hidden = form.classList.contains("hidden");
+  if (hidden) {
+    // Populate form from savedRules
+    const container = document.getElementById("avail-rules");
+    container.innerHTML = "";
+    savedRules.forEach(r => addRule(r));
+    form.classList.remove("hidden");
+    summary.classList.add("hidden");
+    btn.textContent = "Close";
+  } else {
+    form.classList.add("hidden");
+    summary.classList.remove("hidden");
+    btn.textContent = "Edit";
+  }
+}
+
+function addRule(rule) {
   const container = document.getElementById("avail-rules");
   const div = document.createElement("div");
-  div.className = "flex gap-2 items-center";
+  div.className = "flex gap-2 items-center flex-wrap";
   div.innerHTML = `
-    <select class="rule-day border rounded px-2 py-1 text-sm">
-      ${DAYS.map((d,i) => `<option value="${i}">${d}</option>`).join("")}
+    <select class="rule-day border rounded-lg px-2 py-1.5 text-sm bg-white">
+      ${DAYS.map((d, i) => `<option value="${i}" ${rule && rule.day_of_week === i ? "selected" : ""}>${d}</option>`).join("")}
     </select>
-    <input type="time" class="rule-start border rounded px-2 py-1 text-sm" value="09:00" />
+    <input type="time" class="rule-start border rounded-lg px-2 py-1.5 text-sm"
+           value="${rule ? rule.start_time.slice(0,5) : "09:00"}" />
     <span class="text-gray-400 text-sm">to</span>
-    <input type="time" class="rule-end border rounded px-2 py-1 text-sm" value="17:00" />
-    <button onclick="this.parentNode.remove()" class="text-red-400 text-sm hover:text-red-600">×</button>
+    <input type="time" class="rule-end border rounded-lg px-2 py-1.5 text-sm"
+           value="${rule ? rule.end_time.slice(0,5) : "17:00"}" />
+    <button onclick="this.parentNode.remove()"
+            class="text-red-400 text-sm hover:text-red-600 px-1">×</button>
   `;
   container.appendChild(div);
 }
@@ -84,20 +233,201 @@ async function saveAvailability() {
       day_of_week: parseInt(row.querySelector(".rule-day").value),
       start_time: row.querySelector(".rule-start").value,
       end_time: row.querySelector(".rule-end").value,
-      timezone: "{{ user.timezone }}"
+      timezone: USER_TZ,
     });
   });
 
-  const resp = await fetch("/dashboard/availability", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(rules)
-  });
-  if (resp.ok) {
-    alert("Availability saved!");
-  } else {
-    alert("Save failed.");
+  const btn = document.querySelector('#avail-form button[onclick="saveAvailability()"]');
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+
+  try {
+    const resp = await fetch("/dashboard/availability", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(rules),
+    });
+    if (resp.ok) {
+      savedRules = rules;
+      renderAvailSummary();
+      toggleAvailForm();
+    } else {
+      alert("Failed to save availability.");
+    }
+  } catch {
+    alert("Network error.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save availability";
   }
 }
+
+// -----------------------------------------------------------------------
+// Event types
+// -----------------------------------------------------------------------
+
+let eventTypes = [];
+
+async function loadEventTypes() {
+  // We use the booking page endpoint to fetch event types — but we need the
+  // management endpoint. Instead, we keep a client-side cache from the dashboard
+  // context; let's load from an inline data attribute.
+  renderEventTypes();
+}
+
+function renderEventTypes() {
+  const list = document.getElementById("et-list");
+  const empty = document.getElementById("et-empty-msg");
+  if (!eventTypes.length) {
+    list.innerHTML = '<p class="text-sm text-gray-400">No event types yet. Create your first one above.</p>';
+    return;
+  }
+  list.innerHTML = eventTypes.map(et => `
+    <div class="border rounded-xl p-4 bg-white flex items-center justify-between" id="et-row-${et.id}">
+      <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full flex-shrink-0" style="background:${et.color}"></div>
+        <div>
+          <p class="font-medium text-sm">${et.title}</p>
+          <p class="text-xs text-gray-400">${et.duration_minutes} min · /${et.slug}</p>
+        </div>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="editEventType(${et.id})"
+                class="text-xs text-blue-600 hover:underline">Edit</button>
+        <button onclick="deleteEventType(${et.id})"
+                class="text-xs text-red-400 hover:underline">Delete</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function showEventTypeForm(et) {
+  const panel = document.getElementById("et-form-panel");
+  document.getElementById("et-form-title").textContent = et ? "Edit event type" : "New event type";
+  document.getElementById("et-id").value = et ? et.id : "";
+  document.getElementById("et-title").value = et ? et.title : "";
+  document.getElementById("et-slug").value = et ? et.slug : "";
+  document.getElementById("et-duration").value = et ? et.duration_minutes : 30;
+  document.getElementById("et-buffer").value = et ? et.buffer_minutes : 0;
+  document.getElementById("et-notice").value = et ? et.min_notice_hours : 1;
+  document.getElementById("et-horizon").value = et ? et.max_horizon_days : 30;
+  document.getElementById("et-color").value = et ? et.color : "#2563eb";
+  document.getElementById("et-video").value = et ? (et.video_link || "") : "";
+  document.getElementById("et-description").value = et ? (et.description || "") : "";
+  panel.classList.remove("hidden");
+  panel.scrollIntoView({ behavior: "smooth" });
+}
+
+function hideEventTypeForm() {
+  document.getElementById("et-form-panel").classList.add("hidden");
+}
+
+function editEventType(id) {
+  const et = eventTypes.find(e => e.id === id);
+  if (et) showEventTypeForm(et);
+}
+
+async function deleteEventType(id) {
+  if (!confirm("Delete this event type? This cannot be undone.")) return;
+  try {
+    const resp = await fetch(`/dashboard/event-types/${id}`, { method: "DELETE" });
+    if (resp.ok) {
+      eventTypes = eventTypes.filter(e => e.id !== id);
+      renderEventTypes();
+    } else {
+      alert("Delete failed.");
+    }
+  } catch {
+    alert("Network error.");
+  }
+}
+
+document.getElementById("et-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("et-id").value;
+  const payload = {
+    title: document.getElementById("et-title").value,
+    slug: document.getElementById("et-slug").value,
+    description: document.getElementById("et-description").value || null,
+    duration_minutes: parseInt(document.getElementById("et-duration").value),
+    buffer_minutes: parseInt(document.getElementById("et-buffer").value),
+    min_notice_hours: parseInt(document.getElementById("et-notice").value),
+    max_horizon_days: parseInt(document.getElementById("et-horizon").value),
+    color: document.getElementById("et-color").value,
+    video_link: document.getElementById("et-video").value || null,
+    location: null,
+    intake_questions: [],
+  };
+
+  const btn = e.target.querySelector("button[type=submit]");
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+
+  try {
+    const url = id ? `/dashboard/event-types/${id}` : "/dashboard/event-types";
+    const method = id ? "PUT" : "POST";
+    const resp = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (id) {
+        // Update in place
+        const idx = eventTypes.findIndex(e => e.id === parseInt(id));
+        if (idx >= 0) eventTypes[idx] = { ...eventTypes[idx], ...payload, id: parseInt(id) };
+      } else {
+        eventTypes.push({ ...payload, id: data.id });
+      }
+      renderEventTypes();
+      hideEventTypeForm();
+    } else {
+      const err = await resp.json().catch(() => ({}));
+      alert(err.detail || "Save failed.");
+    }
+  } catch {
+    alert("Network error.");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save";
+  }
+});
+
+// Auto-populate slug from title
+document.getElementById("et-title").addEventListener("input", (e) => {
+  const idField = document.getElementById("et-id");
+  if (idField.value) return; // Don't auto-change slug when editing
+  document.getElementById("et-slug").value = e.target.value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+});
+
+// -----------------------------------------------------------------------
+// Bootstrap: load server-side event types into JS array
+// -----------------------------------------------------------------------
+// The dashboard router only passes `upcoming` bookings. We need to also
+// expose event types. For now, fetch them from the booking page slug endpoint.
+// Actually we'll do a quick JSON call to get current user's event types.
+(async function init() {
+  // Load event types via internal fetch (we'll add a GET endpoint in the router,
+  // or use the existing create/update surface). Use a simple workaround:
+  // the booking page /{slug} already returns event_types in the HTML context,
+  // but we need them as JSON. We'll call the page and parse, or better, add
+  // a lightweight GET /dashboard/event-types endpoint. For now, keep a local
+  // fetch to a small helper we'll expose.
+  try {
+    const resp = await fetch("/dashboard/event-types");
+    if (resp.ok) {
+      eventTypes = await resp.json();
+    }
+  } catch {
+    // If endpoint doesn't exist yet, start empty
+    eventTypes = [];
+  }
+  renderEventTypes();
+  await loadAvailability();
+})();
 </script>
 {% endblock %}

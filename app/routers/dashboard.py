@@ -72,6 +72,31 @@ class EventTypeCreate(BaseModel):
     intake_questions: list = []
 
 
+@router.get("/event-types")
+async def list_event_types(user: CurrentUser, db: DbSession):
+    result = await db.execute(
+        select(EventType).where(EventType.user_id == user.id).order_by(EventType.id)
+    )
+    return [
+        {
+            "id": et.id,
+            "slug": et.slug,
+            "title": et.title,
+            "description": et.description,
+            "duration_minutes": et.duration_minutes,
+            "buffer_minutes": et.buffer_minutes,
+            "min_notice_hours": et.min_notice_hours,
+            "max_horizon_days": et.max_horizon_days,
+            "color": et.color,
+            "location": et.location,
+            "video_link": et.video_link,
+            "intake_questions": et.intake_questions,
+            "is_active": et.is_active,
+        }
+        for et in result.scalars()
+    ]
+
+
 @router.post("/event-types")
 async def create_event_type(data: EventTypeCreate, user: CurrentUser, db: DbSession):
     et = EventType(user_id=user.id, **data.model_dump())
