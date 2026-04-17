@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/*", "slice/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+          SECRET_KEY: "ci-test-secret-key"
+          ENCRYPTION_KEY: ""
+        run: pytest -v --tb=short --cov=app --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t bisque-booking:ci .
+
+      - name: Start stack and verify health
+        run: |
+          cp .env.example .env
+          echo "SECRET_KEY=ci-test-key" >> .env
+          echo "DB_PASSWORD=bisque" >> .env
+          docker compose up -d db mailpit
+          sleep 10
+          docker compose up -d app
+          sleep 5
+          curl -f http://localhost:8000/health || exit 1
+          docker compose down

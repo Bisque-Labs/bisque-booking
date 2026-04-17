@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — bisque-booking{% endblock %}
+{% block content %}
+<div class="flex items-center justify-between mb-8">
+  <h1 class="text-2xl font-bold">Welcome, {{ user.name }}</h1>
+  <a href="/{{ user.slug }}" target="_blank"
+     class="text-sm text-blue-600 hover:underline">
+    View your booking page →
+  </a>
+</div>
+
+<section class="mb-10">
+  <h2 class="text-lg font-semibold mb-4">Upcoming bookings</h2>
+  {% if not upcoming %}
+    <p class="text-gray-400">No upcoming bookings.</p>
+  {% else %}
+    <div class="space-y-3">
+      {% for b in upcoming %}
+      <div class="border rounded-xl p-4 bg-white flex items-center justify-between">
+        <div>
+          <p class="font-medium">{{ b.client_name }}</p>
+          <p class="text-sm text-gray-500">{{ b.client_email }}</p>
+        </div>
+        <div class="text-right text-sm">
+          <p class="font-medium">{{ b.start_at.strftime('%b %d, %Y') }}</p>
+          <p class="text-gray-500">{{ b.start_at.strftime('%I:%M %p') }} UTC</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
+<section class="mb-10">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold">Availability</h2>
+    <button onclick="document.getElementById('avail-form').classList.toggle('hidden')"
+            class="text-sm text-blue-600 hover:underline">Edit</button>
+  </div>
+  <div id="avail-form" class="hidden border rounded-xl p-4 bg-white">
+    <p class="text-sm text-gray-500 mb-4">
+      Set your regular availability windows. Times are in your timezone ({{ user.timezone }}).
+    </p>
+    <div id="avail-rules" class="space-y-2"></div>
+    <button onclick="addRule()"
+            class="mt-3 text-sm text-blue-600 hover:underline">+ Add window</button>
+    <button onclick="saveAvailability()"
+            class="mt-4 block w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+      Save availability
+    </button>
+  </div>
+</section>
+
+<section>
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold">Event types</h2>
+  </div>
+  <p class="text-sm text-gray-400">Manage event types via the API or admin dashboard.</p>
+</section>
+
+<script>
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+function addRule() {
+  const container = document.getElementById("avail-rules");
+  const div = document.createElement("div");
+  div.className = "flex gap-2 items-center";
+  div.innerHTML = `
+    <select class="rule-day border rounded px-2 py-1 text-sm">
+      ${DAYS.map((d,i) => `<option value="${i}">${d}</option>`).join("")}
+    </select>
+    <input type="time" class="rule-start border rounded px-2 py-1 text-sm" value="09:00" />
+    <span class="text-gray-400 text-sm">to</span>
+    <input type="time" class="rule-end border rounded px-2 py-1 text-sm" value="17:00" />
+    <button onclick="this.parentNode.remove()" class="text-red-400 text-sm hover:text-red-600">×</button>
+  `;
+  container.appendChild(div);
+}
+
+async function saveAvailability() {
+  const rules = [];
+  document.querySelectorAll("#avail-rules > div").forEach(row => {
+    rules.push({
+      day_of_week: parseInt(row.querySelector(".rule-day").value),
+      start_time: row.querySelector(".rule-start").value,
+      end_time: row.querySelector(".rule-end").value,
+      timezone: "{{ user.timezone }}"
+    });
+  });
+
+  const resp = await fetch("/dashboard/availability", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(rules)
+  });
+  if (resp.ok) {
+    alert("Availability saved!");
+  } else {
+    alert("Save failed.");
+  }
+}
+</script>
+{% endblock %}
