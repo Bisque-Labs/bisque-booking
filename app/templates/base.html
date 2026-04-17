@@ -14,14 +14,15 @@
       {% if current_user %}
         <a href="/dashboard" class="hover:underline">Dashboard</a>
         <a href="/polls" class="hover:underline">Polls</a>
-        {% if current_user.role == 'admin' %}
+        <a href="/profile" class="hover:underline">Profile</a>
+        {% if current_user.role.value == 'admin' or current_user.role == 'admin' %}
           <a href="/dashboard/admin" class="hover:underline text-orange-600">Admin</a>
         {% endif %}
         <form method="post" action="/auth/logout" class="inline">
           <button type="submit" class="hover:underline text-gray-500">Log out</button>
         </form>
       {% else %}
-        <a href="/auth/google" class="hover:underline">Sign in with Google</a>
+        <a href="/auth/login" class="hover:underline">Sign in</a>
       {% endif %}
     </nav>
   </header>
