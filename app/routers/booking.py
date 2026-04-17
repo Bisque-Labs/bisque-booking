@@ -45,7 +45,16 @@ async def booking_page(slug: str, request: Request, db: DbSession):
     active_event_types = [et for et in user.event_types if et.is_active]
     return templates.TemplateResponse(
         "pages/booking_page.html",
-        {"request": request, "user": user, "event_types": active_event_types},
+        {
+            "request": request,
+            "user": user,
+            "event_types": active_event_types,
+            # Also provide a JSON-safe version for client-side JS
+            "event_types_json": [
+                {"slug": et.slug, "title": et.title, "duration_minutes": et.duration_minutes, "color": et.color}
+                for et in active_event_types
+            ],
+        },
     )
 
 
