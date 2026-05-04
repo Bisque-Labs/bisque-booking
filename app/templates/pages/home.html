@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}bisque-booking — self-hosted scheduling{% endblock %}
+{% block content %}
+<div class="text-center py-16">
+  <h1 class="text-4xl font-bold mb-4">bisque-booking</h1>
+  <p class="text-xl text-gray-600 mb-8">
+    Self-hosted scheduling for consulting teams.<br>
+    1:1 booking links, group availability polls, Google Calendar sync.
+  </p>
+  <a href="/auth/google"
+     class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition">
+    Sign in with Google
+  </a>
+  <p class="mt-4 text-sm text-gray-500">
+    or <a href="/login" class="underline">sign in with email</a>
+  </p>
+</div>
+{% endblock %}

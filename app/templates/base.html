@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}bisque-booking{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/main.css" />
+  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2uH1/ZoGaWgDxWn5A0/mKz8jE0B3uiU+9m" crossorigin="anonymous"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+  <header class="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+    <a href="/" class="font-semibold text-lg text-bisque">bisque-booking</a>
+    <nav class="flex gap-4 text-sm">
+      {% if current_user %}
+        <a href="/dashboard" class="hover:underline">Dashboard</a>
+        <a href="/polls" class="hover:underline">Polls</a>
+        <a href="/profile" class="hover:underline">Profile</a>
+        {% if current_user.role.value == 'admin' or current_user.role == 'admin' %}
+          <a href="/dashboard/admin" class="hover:underline text-orange-600">Admin</a>
+        {% endif %}
+        <form method="post" action="/auth/logout" class="inline">
+          <button type="submit" class="hover:underline text-gray-500">Log out</button>
+        </form>
+      {% else %}
+        <a href="/auth/login" class="hover:underline">Sign in</a>
+      {% endif %}
+    </nav>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="text-center text-xs text-gray-400 py-6">
+    bisque-booking — open-source scheduling
+  </footer>
+</body>
+</html>

@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block title %}Book with {{ user.name }}{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto">
+
+  <!-- Consultant header -->
+  <div class="mb-8">
+    <h1 class="text-3xl font-bold">{{ user.name }}</h1>
+    <p class="text-gray-400 text-sm mt-1">{{ user.timezone }}</p>
+  </div>
+
+  <!-- Event type cards -->
+  {% if not event_types %}
+    <p class="text-gray-400">No booking types are currently available.</p>
+  {% else %}
+  <div id="event-type-list" class="space-y-3 mb-8">
+    <p class="text-xs text-gray-400 uppercase tracking-wide mb-3 font-medium">Select a meeting type</p>
+    {% for et in event_types %}
+    <button onclick="selectEventType('{{ et.slug }}', '{{ et.title }}', {{ et.duration_minutes }}, '{{ et.color }}')"
+            class="w-full text-left border rounded-xl p-5 bg-white hover:shadow-md transition cursor-pointer">
+      <div class="flex items-center gap-3">
+        <div class="w-3 h-3 rounded-full" style="background: {{ et.color }}"></div>
+        <h2 class="text-base font-semibold">{{ et.title }}</h2>
+        <span class="ml-auto text-sm text-gray-400">{{ et.duration_minutes }} min</span>
+      </div>
+      {% if et.description %}
+        <p class="mt-2 text-sm text-gray-500 pl-6">{{ et.description }}</p>
+      {% endif %}
+    </button>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Date + slot picker -->
+  <div id="booking-flow" class="hidden">
+
+    <div class="flex items-center gap-3 mb-6">
+      <div id="flow-color-dot" class="w-3 h-3 rounded-full"></div>
+      <h2 id="flow-title" class="text-xl font-semibold"></h2>
+      <button onclick="resetFlow()" class="ml-auto text-sm text-gray-400 hover:text-gray-600">← Change</button>
+    </div>
+
+    <!-- Month calendar -->
+    <div class="mb-6 bg-white border rounded-xl p-4">
+      <div class="flex items-center gap-2 mb-4">
+        <button onclick="prevMonth()" class="text-gray-400 hover:text-gray-700 px-2 py-1 rounded">‹</button>
+        <span id="cal-label" class="font-medium flex-1 text-center text-sm"></span>
+        <button onclick="nextMonth()" class="text-gray-400 hover:text-gray-700 px-2 py-1 rounded">›</button>
+      </div>
+      <div class="grid grid-cols-7 gap-1 text-center text-xs text-gray-400 mb-2">
+        <div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div><div>Su</div>
+      </div>
+      <div id="cal-grid" class="grid grid-cols-7 gap-1"></div>
+    </div>
+
+    <!-- Time slots -->
+    <div id="slots-panel" class="hidden">
+      <h3 id="slots-date-label" class="text-sm font-medium text-gray-500 mb-3"></h3>
+      <div id="slots-container" class="grid grid-cols-3 gap-2"></div>
+      <p class="text-xs text-gray-400 mt-3" id="tz-notice"></p>
+    </div>
+  </div>
+
+  <!-- Booking form -->
+  <div id="booking-form" class="hidden mt-6">
+    <div class="border-t pt-6 mb-4">
+      <h2 class="text-lg font-semibold">Your details</h2>
+    </div>
+
+    <div id="slot-warning" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800"></div>
+
+    <form id="booking-submit-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Full name *</label>
+        <input type="text" name="client_name" required autocomplete="name"
+               class="w-full border rounded-lg px-3 py-2.5 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Email *</label>
+        <input type="email" name="client_email" required autocomplete="email"
+               class="w-full border rounded-lg px-3 py-2.5 text-sm" />
+      </div>
+      <div id="intake-questions" class="space-y-4"></div>
+
+      <button type="submit"
+              class="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition text-sm">
+        Confirm booking
+      </button>
+    </form>
+  </div>
+
+  <!-- Confirmation -->
+  <div id="booking-confirmed" class="hidden mt-8 text-center">
+    <div class="bg-green-50 border border-green-200 rounded-xl p-8">
+      <div class="text-5xl mb-3" style="line-height:1">✓</div>
+      <h2 class="text-xl font-semibold text-green-800 mt-3">You're booked!</h2>
+      <p class="text-green-700 mt-2 text-sm" id="confirmed-details"></p>
+      <p class="text-xs text-gray-400 mt-4">A confirmation email with a calendar invite is on its way.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const USER_SLUG = "{{ user.slug }}";
+let selectedEventTypeSlug = null;
+let selectedSlotUtc = null;
+let currentYear = null;
+let currentMonth = null;
+const clientTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+document.getElementById("tz-notice") && (document.getElementById("tz-notice").textContent = `Times in ${clientTimezone}`);
+
+function selectEventType(slug, title, duration, color) {
+  selectedEventTypeSlug = slug;
+  document.getElementById("booking-flow").classList.remove("hidden");
+  document.getElementById("booking-form").classList.add("hidden");
+  document.getElementById("flow-title").textContent = `${title} — ${duration} min`;
+  document.getElementById("flow-color-dot").style.background = color;
+  document.getElementById("slots-panel").classList.add("hidden");
+
+  const now = new Date();
+  currentYear = now.getFullYear();
+  currentMonth = now.getMonth();
+  renderCalendar();
+  document.getElementById("booking-flow").scrollIntoView({ behavior: "smooth" });
+}
+
+function resetFlow() {
+  selectedEventTypeSlug = null;
+  selectedSlotUtc = null;
+  document.getElementById("booking-flow").classList.add("hidden");
+  document.getElementById("booking-form").classList.add("hidden");
+  document.getElementById("booking-confirmed").classList.add("hidden");
+}
+
+function prevMonth() {
+  if (--currentMonth < 0) { currentMonth = 11; currentYear--; }
+  renderCalendar();
+}
+
+function nextMonth() {
+  if (++currentMonth > 11) { currentMonth = 0; currentYear++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  document.getElementById("cal-label").textContent = `${months[currentMonth]} ${currentYear}`;
+
+  const grid = document.getElementById("cal-grid");
+  grid.innerHTML = "";
+  const today = new Date();
+  const firstDay = new Date(currentYear, currentMonth, 1);
+
+  // Grid starts on Monday: getDay() 0=Sun → offset 6, 1=Mon → 0, etc.
+  let offset = (firstDay.getDay() + 6) % 7;
+  for (let i = 0; i < offset; i++) grid.appendChild(document.createElement("div"));
+
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isPast = new Date(currentYear, currentMonth, d) < new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const btn = document.createElement("button");
+    btn.textContent = d;
+    btn.className = "rounded py-1 text-sm text-center transition w-full";
+    if (isPast) {
+      btn.className += " text-gray-300 cursor-not-allowed";
+      btn.disabled = true;
+    } else {
+      btn.className += " hover:bg-blue-50 hover:text-blue-700";
+      btn.dataset.date = dateStr;
+      btn.addEventListener("click", () => {
+        document.querySelectorAll("#cal-grid button.bg-blue-600").forEach(b => {
+          b.classList.remove("bg-blue-600","text-white");
+        });
+        btn.classList.add("bg-blue-600","text-white");
+        loadSlots(dateStr, months[currentMonth], d);
+      });
+    }
+    grid.appendChild(btn);
+  }
+}
+
+async function loadSlots(dateStr, monthName, day) {
+  const panel = document.getElementById("slots-panel");
+  const container = document.getElementById("slots-container");
+  panel.classList.remove("hidden");
+  document.getElementById("slots-date-label").textContent = `Available times — ${monthName} ${day}`;
+  container.innerHTML = '<p class="col-span-3 text-gray-400 text-sm py-3 text-center">Loading…</p>';
+
+  try {
+    const resp = await fetch(`/${USER_SLUG}/${selectedEventTypeSlug}/slots?target_date=${dateStr}&client_timezone=${encodeURIComponent(clientTimezone)}`);
+    if (!resp.ok) throw new Error();
+    const data = await resp.json();
+    if (!data.slots?.length) {
+      container.innerHTML = '<p class="col-span-3 text-gray-400 text-sm py-3 text-center">No availability on this date.</p>';
+      return;
+    }
+    container.innerHTML = data.slots.map(slot =>
+      `<button onclick="selectSlot('${slot.utc}', ${JSON.stringify(slot.warning||'')})"
+               class="border rounded-lg px-2 py-2.5 text-sm hover:bg-blue-50 hover:border-blue-400 transition text-center font-medium">
+         ${slot.local}
+       </button>`
+    ).join("");
+  } catch {
+    container.innerHTML = '<p class="col-span-3 text-red-400 text-sm py-3 text-center">Error loading slots.</p>';
+  }
+}
+
+function selectSlot(utc, warning) {
+  selectedSlotUtc = utc;
+  const warnEl = document.getElementById("slot-warning");
+  if (warning) { warnEl.textContent = warning; warnEl.classList.remove("hidden"); }
+  else warnEl.classList.add("hidden");
+  document.getElementById("booking-form").classList.remove("hidden");
+  document.getElementById("booking-form").scrollIntoView({ behavior: "smooth" });
+}
+
+document.getElementById("booking-submit-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const intakeAnswers = {};
+  form.querySelectorAll("[data-intake]").forEach(el => intakeAnswers[el.dataset.intake] = el.value);
+
+  const payload = {
+    slot_utc: selectedSlotUtc,
+    client_name: form.client_name.value,
+    client_email: form.client_email.value,
+    client_timezone: clientTimezone,
+    intake_answers: intakeAnswers,
+  };
+
+  const btn = form.querySelector("button[type=submit]");
+  btn.disabled = true;
+  btn.textContent = "Booking…";
+
+  try {
+    const resp = await fetch(`/${USER_SLUG}/${selectedEventTypeSlug}/book`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      document.getElementById("booking-form").classList.add("hidden");
+      document.getElementById("booking-flow").classList.add("hidden");
+      document.getElementById("event-type-list").classList.add("hidden");
+      document.getElementById("booking-confirmed").classList.remove("hidden");
+      const start = new Date(data.start_at);
+      document.getElementById("confirmed-details").textContent =
+        start.toLocaleString(undefined, { weekday:"long", year:"numeric", month:"long", day:"numeric", hour:"2-digit", minute:"2-digit" });
+    } else {
+      const err = await resp.json();
+      alert(err.detail || "Booking failed. The slot may have just been taken — please pick another time.");
+      btn.disabled = false;
+      btn.textContent = "Confirm booking";
+    }
+  } catch {
+    alert("Network error. Please try again.");
+    btn.disabled = false;
+    btn.textContent = "Confirm booking";
+  }
+});
+</script>
+{% endblock %}

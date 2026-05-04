@@ -1,0 +1,27 @@
+services:
+  test-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bisque_test
+      POSTGRES_USER: bisque
+      POSTGRES_PASSWORD: bisque
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bisque"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://bisque:bisque@test-db:5432/bisque_test
+      SECRET_KEY: test-secret-key
+      ENCRYPTION_KEY: ""
+    depends_on:
+      test-db:
+        condition: service_healthy
+    volumes:
+      - ./:/app
+      - /app/__pycache__

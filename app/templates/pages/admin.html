@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Admin — bisque-booking{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold mb-8">Admin Dashboard</h1>
+
+<section class="mb-10">
+  <h2 class="text-lg font-semibold mb-4">Team members</h2>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm border-collapse">
+      <thead>
+        <tr class="border-b bg-gray-50">
+          <th class="text-left px-3 py-2">Name</th>
+          <th class="text-left px-3 py-2">Email</th>
+          <th class="text-left px-3 py-2">Slug</th>
+          <th class="text-left px-3 py-2">Role</th>
+          <th class="text-left px-3 py-2">Status</th>
+          <th class="px-3 py-2"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in all_users %}
+        <tr class="border-b hover:bg-gray-50">
+          <td class="px-3 py-2">{{ u.name }}</td>
+          <td class="px-3 py-2 text-gray-500">{{ u.email }}</td>
+          <td class="px-3 py-2">
+            <a href="/{{ u.slug }}" class="text-blue-600 hover:underline">/{{ u.slug }}</a>
+          </td>
+          <td class="px-3 py-2">{{ u.role }}</td>
+          <td class="px-3 py-2">
+            {% if u.is_active %}
+              <span class="text-green-600">Active</span>
+            {% else %}
+              <span class="text-gray-400">Inactive</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2">
+            {% if u.is_active %}
+            <button onclick="deactivateUser({{ u.id }})"
+                    class="text-xs text-red-500 hover:underline">Deactivate</button>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="mb-10">
+  <h2 class="text-lg font-semibold mb-4">Upcoming bookings (all team)</h2>
+  {% if not upcoming %}
+    <p class="text-gray-400">No upcoming bookings.</p>
+  {% else %}
+    <div class="space-y-2">
+      {% for b in upcoming %}
+      <div class="border rounded-lg p-3 bg-white flex items-center justify-between text-sm">
+        <div>
+          <span class="font-medium">{{ b.client_name }}</span>
+          <span class="text-gray-400 ml-2">→ {{ b.event_type.user.name }}</span>
+        </div>
+        <div class="text-gray-500">
+          {{ b.start_at.strftime('%b %d %I:%M %p') }} UTC
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</section>
+
+<script>
+async function deactivateUser(userId) {
+  if (!confirm("Deactivate this user?")) return;
+  const resp = await fetch(`/dashboard/admin/users/${userId}/deactivate`, { method: "PUT" });
+  if (resp.ok) location.reload();
+}
+</script>
+{% endblock %}

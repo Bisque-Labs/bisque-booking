@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Profile — bisque-booking{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto">
+  <h1 class="text-2xl font-bold mb-8">Your profile</h1>
+
+  <div id="success-msg" class="hidden bg-green-50 border border-green-200 rounded-lg p-3 mb-4 text-sm text-green-700">
+    Profile updated.
+  </div>
+  <div id="error-msg" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-sm text-red-700"></div>
+
+  <div class="bg-white border rounded-xl p-6 space-y-4 mb-8">
+    <h2 class="text-lg font-semibold">Basic info</h2>
+    <form id="profile-form" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium mb-1">Display name *</label>
+        <input type="text" name="name" required value="{{ user.name }}"
+               class="w-full border rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">
+          Booking page slug *
+          <span class="text-gray-400 font-normal text-xs ml-1">your-domain.com/<strong id="slug-preview">{{ user.slug }}</strong></span>
+        </label>
+        <input type="text" name="slug" required value="{{ user.slug }}"
+               pattern="[a-z0-9\-]+" oninput="document.getElementById('slug-preview').textContent = this.value"
+               class="w-full border rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="block text-sm font-medium mb-1">Timezone *</label>
+        <select name="timezone" class="w-full border rounded-lg px-3 py-2 text-sm">
+          {% set tzones = [
+            ("America/New_York", "Eastern Time (ET)"),
+            ("America/Chicago", "Central Time (CT)"),
+            ("America/Denver", "Mountain Time (MT)"),
+            ("America/Los_Angeles", "Pacific Time (PT)"),
+            ("Europe/London", "London (GMT/BST)"),
+            ("Europe/Paris", "Central European (CET)"),
+            ("UTC", "UTC"),
+          ] %}
+          {% for tz_val, tz_label in tzones %}
+          <option value="{{ tz_val }}" {% if user.timezone == tz_val %}selected{% endif %}>
+            {{ tz_label }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit"
+              class="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 transition">
+        Save changes
+      </button>
+    </form>
+  </div>
+
+  <div class="bg-white border rounded-xl p-6 space-y-4">
+    <h2 class="text-lg font-semibold">Change password</h2>
+    <p class="text-sm text-gray-500">
+      {% if user.google_id %}
+        You sign in via Google. You can still set a password as a fallback.
+      {% else %}
+        Used for email/password login.
+      {% endif %}
+    </p>
+    <form id="password-form" class="space-y-3">
+      {% if user.hashed_password %}
+      <div>
+        <label class="block text-sm font-medium mb-1">Current password</label>
+        <input type="password" name="current_password"
+               class="w-full border rounded-lg px-3 py-2 text-sm" />
+      </div>
+      {% endif %}
+      <div>
+        <label class="block text-sm font-medium mb-1">New password (min 8 chars)</label>
+        <input type="password" name="new_password" minlength="8"
+               class="w-full border rounded-lg px-3 py-2 text-sm" />
+      </div>
+      <button type="submit"
+              class="w-full border border-gray-300 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition">
+        Update password
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById("profile-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const payload = {
+    name: form.name.value,
+    slug: form.slug.value,
+    timezone: form.timezone.value,
+  };
+
+  const resp = await fetch("/profile", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const successEl = document.getElementById("success-msg");
+  const errorEl = document.getElementById("error-msg");
+  if (resp.ok) {
+    successEl.classList.remove("hidden");
+    errorEl.classList.add("hidden");
+    setTimeout(() => successEl.classList.add("hidden"), 3000);
+  } else {
+    const err = await resp.json();
+    errorEl.textContent = err.detail || "Save failed.";
+    errorEl.classList.remove("hidden");
+  }
+});
+
+document.getElementById("password-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const payload = {
+    current_password: form.current_password?.value || "",
+    new_password: form.new_password.value,
+  };
+
+  const resp = await fetch("/profile/password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  if (resp.ok) {
+    alert("Password updated.");
+    form.reset();
+  } else {
+    const err = await resp.json();
+    alert(err.detail || "Update failed.");
+  }
+});
+</script>
+{% endblock %}
