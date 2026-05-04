@@ -1,0 +1,38 @@
+{
+  "name": "bisque-booking-ts",
+  "version": "0.1.0",
+  "description": "TypeScript rewrite of bisque-booking using Hono + Drizzle ORM",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch dist/src/main.js",
+    "build": "tsc",
+    "start": "node dist/src/main.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "@hono/zod-validator": "^0.4.1",
+    "bcryptjs": "^2.4.3",
+    "drizzle-orm": "^0.39.0",
+    "hono": "^4.6.0",
+    "ical-generator": "^8.0.0",
+    "jose": "^5.9.6",
+    "postgres": "^3.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^22.0.0",
+    "@vitest/coverage-v8": "^2.1.0",
+    "drizzle-kit": "^0.30.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  }
+}
