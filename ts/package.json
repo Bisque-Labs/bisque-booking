@@ -4,9 +4,9 @@
   "description": "TypeScript rewrite of bisque-booking using Hono + Drizzle ORM",
   "type": "module",
   "scripts": {
-    "dev": "node --watch dist/src/main.js",
+    "dev": "node --watch --import tsx/esm src/server.ts",
     "build": "tsc",
-    "start": "node dist/src/main.js",
+    "start": "node dist/src/server.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
