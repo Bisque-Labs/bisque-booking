@@ -24,6 +24,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", "migrations/**/*"],
+  "include": ["src/**/*", "api/**/*", "migrations/**/*"],
   "exclude": ["node_modules", "dist"]
 }

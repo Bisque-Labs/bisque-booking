@@ -15,6 +15,7 @@ import { profileRouter } from "@/routes/profile";
 import { dashboardRouter } from "@/routes/dashboard";
 import { bookingRouter } from "@/routes/booking";
 import { pollsRouter } from "@/routes/polls";
+import { cronRouter } from "@/routes/cron";
 
 export function createApp(): Hono {
   const app = new Hono();
@@ -39,6 +40,9 @@ export function createApp(): Hono {
   app.route("/profile", profileRouter);
   app.route("/dashboard", dashboardRouter);
   app.route("/polls", pollsRouter);
+
+  // Vercel Cron Job routes
+  app.route("/api/cron", cronRouter);
 
   // Booking routes last (catch-all /:slug patterns)
   app.route("/", bookingRouter);
