@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "bisque_booking",
+  "project_id": "c3bbbd30-f325-4ead-a94a-1e2ab6482614"
+}
