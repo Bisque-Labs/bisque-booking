@@ -178,17 +178,17 @@ Consultant can type "I'm available Tuesday and Thursday afternoons, never before
 
 ## Technical Architecture
 
-**Runtime: Python + FastAPI**
+**Runtime: TypeScript + Node.js (Next.js 14)**
 
-Python is chosen for its ecosystem depth in scheduling, timezone handling (`pytz`, `dateutil`), Google API clients, and LLM integrations. FastAPI provides async HTTP with automatic OpenAPI docs. This is not a Next.js application — the frontend complexity does not justify a full React framework.
+The application is implemented in TypeScript, running on Node.js via Next.js 14 App Router. There is no Python in this project. Next.js provides both the API layer (Route Handlers) and the React-based frontend in a single deployable unit. This is not a Python/FastAPI application.
 
-**Frontend: HTMX + Jinja2 templates (server-side rendering)**
+**Frontend: React + Tailwind CSS (Next.js App Router)**
 
-The booking page and admin dashboard are server-rendered HTML enhanced with HTMX for partial-page updates (slot selection, form submission). No React, no build step, no JavaScript bundler required. This makes the Docker image small and the ops story simple. Progressive enhancement: the booking flow works with JavaScript disabled.
+The booking page and admin dashboard are React components (Next.js App Router). Server Components handle data fetching; Client Components handle interactivity. Tailwind CSS provides styling with zero runtime overhead.
 
-**Database: PostgreSQL**
+**Database: SQLite via better-sqlite3**
 
-Single PostgreSQL instance. Schema managed with Alembic migrations. No Redis required for MVP (availability is computed on request; no caching layer needed at consulting-team scale). Background jobs (email sending, reminder scheduling) use APScheduler running in-process.
+Single SQLite file. Schema managed via TypeScript migration runner (`lib/db/migrate.ts`). No PostgreSQL, no Redis, no Alembic. Synchronous `better-sqlite3` driver; switchable to Postgres via connection pooling if needed at scale.
 
 **Data Model (core entities):**
 

@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# bisque-booking (Next.js app)
+
+Self-hosted scheduling for consulting teams — 1:1 booking links, Google Calendar sync, and reminders.
+
+## Tech Stack
+
+- **Language:** TypeScript (no Python anywhere in this project)
+- **Runtime:** Node.js
+- **Framework:** Next.js 14 App Router
+- **Database:** SQLite via `better-sqlite3`
+- **Styling:** Tailwind CSS
+- **Tests:** Vitest
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+npm install
+cp .env.example .env.local
+# Edit .env.local — set ADMIN_PASSWORD and SESSION_SECRET at minimum
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) — the public booking page.
+Open [http://localhost:3000/admin](http://localhost:3000/admin) — the admin dashboard.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Available Scripts
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run dev         # Local dev server (http://localhost:3000)
+npm run build       # Production build
+npm run start       # Run production build
+npm run lint        # ESLint
+npm test            # Run all tests with Vitest
+npm run test:coverage  # Run tests with coverage report
+```
 
-## Learn More
+## Environment Variables
 
-To learn more about Next.js, take a look at the following resources:
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_PASSWORD` | Yes | Password for /admin login |
+| `SESSION_SECRET` | Yes | JWT signing key (32+ chars) |
+| `DATABASE_PATH` | No | SQLite file path (default: `./data/bookings.db`) |
+| `CRON_SECRET` | No | Bearer token for `/api/cron/reminders` |
+| `RESEND_API_KEY` | No | Enable Resend email provider |
+| `SMTP_HOST` | No | Enable SMTP email provider |
+| `SMTP_PORT` | No | SMTP port (default: 587) |
+| `SMTP_USER` | No | SMTP username |
+| `SMTP_PASS` | No | SMTP password |
+| `EMAIL_FROM` | No | From address for outgoing emails |
+| `BASE_URL` | No | Public URL (default: `http://localhost:3000`) |
+| `GOOGLE_CLIENT_ID` | No | Google OAuth client ID (enables Calendar sync) |
+| `GOOGLE_CLIENT_SECRET` | No | Google OAuth client secret |
+| `KISSINGER_GRAPHQL_URL` | No | Kissinger CRM endpoint (enables CRM sync) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Architecture
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+All code lives in `nextjs/`. This is a standalone Next.js 14 app — it is **not** part of a larger Python/FastAPI service. There is no Python, no FastAPI, no alembic, and no PostgreSQL in this application. It uses SQLite exclusively.
 
-## Deploy on Vercel
+```
+app/
+  page.tsx                       # Landing page
+  book/page.tsx                  # Public booking page
+  confirm/[id]/page.tsx          # Booking confirmation page
+  reschedule/[token]/page.tsx    # Public reschedule flow
+  admin/
+    page.tsx                     # Admin dashboard
+    bookings/page.tsx            # All bookings list
+    availability/page.tsx        # Availability config
+    login/page.tsx
+  api/
+    bookings/route.ts            # POST/GET bookings
+    bookings/[id]/route.ts       # GET/PATCH single booking
+    bookings/[id]/cancel/route.ts
+    bookings/[id]/reschedule/route.ts
+    slots/route.ts               # GET available slots
+    admin/
+      availability/route.ts
+      blocked-dates/route.ts
+      auth/login/route.ts
+    auth/
+      google/route.ts
+      google/callback/route.ts
+    cron/
+      reminders/route.ts
+lib/
+  db/index.ts                    # better-sqlite3 singleton
+  db/migrate.ts                  # DDL migrations
+  db/schema.ts                   # TypeScript types
+  slots/engine.ts                # Slot generation algorithm
+  email/index.ts                 # Email adapter (Resend + SMTP)
+  adapters/index.ts              # Adapter registry
+  adapters/kissinger.ts          # Kissinger CRM adapter
+middleware.ts                    # JWT admin auth guard
+vercel.json                      # Vercel Cron config
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploy to Vercel with `vercel deploy`. Set environment variables in the Vercel dashboard.
+SQLite data persists in the `data/` directory — configure persistent storage or use `DATABASE_PATH` to point to a mounted volume.

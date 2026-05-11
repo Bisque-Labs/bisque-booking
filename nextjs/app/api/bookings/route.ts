@@ -1,13 +1,14 @@
 /**
- * POST /api/booking  — create a new booking
- * GET  /api/booking  — list all bookings (admin only, future auth)
+ * POST /api/bookings  — create a new booking
+ * GET  /api/bookings  — list all bookings (admin only)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getDb } from "@/lib/db";
 import { emitBookingConfirmed } from "@/lib/adapters";
-import type { Booking } from "@/lib/db/schema";
+import { sendGuestConfirmationEmail, sendHostNotificationEmail } from "@/lib/email";
+import type { Booking, BookingConfig } from "@/lib/db/schema";
 
 function generateToken(): string {
   return randomBytes(32).toString("hex");
@@ -34,6 +35,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // Sanitize inputs (strip HTML/script injection)
+  const safeName = String(contact_name).slice(0, 200).replace(/<[^>]*>/g, "");
+  const safeNotes = notes ? String(notes).slice(0, 2000).replace(/<[^>]*>/g, "") : null;
+
   // Validate email format
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact_email)) {
     return NextResponse.json({ error: "Invalid email address" }, { status: 400 });
@@ -49,6 +54,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "end_utc must be after start_utc" }, { status: 400 });
   }
 
+  // Validate timezone
+  const tz = timezone ?? "UTC";
+  try {
+    Intl.DateTimeFormat(undefined, { timeZone: tz });
+  } catch {
+    return NextResponse.json({ error: "Invalid timezone" }, { status: 400 });
+  }
+
   // Check slot is not in the past
   if (startDate.getTime() < Date.now()) {
     return NextResponse.json({ error: "Cannot book a slot in the past" }, { status: 400 });
@@ -57,7 +70,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const db = getDb();
 
   // Check for conflicts with existing confirmed bookings
-  const config = db.prepare("SELECT buffer_minutes FROM booking_config WHERE id = 1").get() as { buffer_minutes: number } | undefined;
+  const config = db.prepare("SELECT * FROM booking_config WHERE id = 1").get() as BookingConfig | undefined;
   const bufferMs = (config?.buffer_minutes ?? 15) * 60 * 1000;
   const bufferStart = new Date(startDate.getTime() - bufferMs).toISOString();
   const bufferEnd = new Date(endDate.getTime() + bufferMs).toISOString();
@@ -88,12 +101,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   insert.run({
     id,
-    contact_name,
+    contact_name: safeName,
     contact_email,
     start_utc: startDate.toISOString(),
     end_utc: endDate.toISOString(),
-    timezone: timezone ?? "UTC",
-    notes: notes ?? null,
+    timezone: tz,
+    notes: safeNotes,
     cancel_token,
     reschedule_token,
     created_at: now,
@@ -101,22 +114,43 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
   const booking = db.prepare("SELECT * FROM bookings WHERE id = ?").get(id) as Booking;
 
-  // Emit event (non-blocking — adapter failures don't affect booking)
+  // Emit adapter event (non-blocking)
   emitBookingConfirmed({
     booking_id: id,
     contact_email,
-    contact_name,
+    contact_name: safeName,
     start_utc: startDate.toISOString(),
     end_utc: endDate.toISOString(),
-    notes: notes ?? null,
-    timezone: timezone ?? "UTC",
+    notes: safeNotes,
+    timezone: tz,
   }).catch((err) => console.error("[emit BookingConfirmed]", err));
+
+  // Send confirmation emails (non-blocking — email failure doesn't affect booking)
+  const baseUrl = process.env.BASE_URL ?? "http://localhost:3000";
+  const emailData = {
+    bookingId: id,
+    contactName: safeName,
+    contactEmail: contact_email,
+    startUtc: startDate.toISOString(),
+    endUtc: endDate.toISOString(),
+    timezone: tz,
+    notes: safeNotes,
+    cancelToken: cancel_token,
+    rescheduleToken: reschedule_token,
+    adminName: config?.admin_name ?? "Host",
+    adminEmail: config?.admin_email ?? "",
+    baseUrl,
+  };
+
+  Promise.allSettled([
+    sendGuestConfirmationEmail(emailData),
+    sendHostNotificationEmail(emailData),
+  ]).catch((err) => console.error("[email] confirmation email error", err));
 
   return NextResponse.json({ booking }, { status: 201 });
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
-  // TODO: add admin auth middleware
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "50"), 200);
