@@ -52,6 +52,7 @@ export const kissingerAdapter: BookingAdapter = {
           start: event.start_utc,
           end: event.end_utc,
           notes: event.notes,
+          timezone: event.timezone,
         },
       }
     );

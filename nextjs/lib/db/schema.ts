@@ -66,12 +66,21 @@ export interface BookingConfirmed {
   start_utc: string;
   end_utc: string;
   notes: string | null;
+  timezone: string;
 }
 
 /** BookingCancelled event emitted when a booking is cancelled */
 export interface BookingCancelled {
   booking_id: string;
   contact_email: string;
+}
+
+export interface GoogleToken {
+  id: number;
+  access_token: string;
+  refresh_token: string | null;
+  expiry_date: number | null;
+  updated_at: string;
 }
 
 /** Adapter interface — any integration implements this */

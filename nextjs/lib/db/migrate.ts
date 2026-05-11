@@ -54,9 +54,18 @@ CREATE TABLE IF NOT EXISTS booking_config (
 -- Seed default config row if empty
 INSERT OR IGNORE INTO booking_config (id) VALUES (1);
 
+CREATE TABLE IF NOT EXISTS google_tokens (
+  id INTEGER PRIMARY KEY DEFAULT 1,
+  access_token TEXT NOT NULL,
+  refresh_token TEXT,
+  expiry_date INTEGER,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ','now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_bookings_start_utc ON bookings (start_utc);
 CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings (status);
 CREATE INDEX IF NOT EXISTS idx_bookings_contact_email ON bookings (contact_email);
+CREATE INDEX IF NOT EXISTS idx_bookings_remind ON bookings (remind_24h_sent, remind_1h_sent, start_utc, status);
 `;
 
 export function runMigrations(db: Database.Database): void {
