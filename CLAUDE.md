@@ -52,18 +52,76 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
+All application code lives in the `nextjs/` directory.
 
 ```bash
-# Example:
-# npm install
-# npm test
+cd nextjs
+npm install
+npm test           # Run all tests with Vitest
+npm run dev        # Local dev server (http://localhost:3000)
+npm run build      # Production build
+npm run lint       # ESLint
 ```
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+bisque-booking is a **standalone Next.js 14 app** (App Router + TypeScript + Tailwind CSS).
+It is NOT part of eloso-bisque. It deploys independently.
+
+```
+nextjs/
+  app/
+    page.tsx                      # Landing page
+    book/page.tsx                 # Public booking page (unauthenticated)
+    admin/                        # Admin UI (password-protected)
+      login/page.tsx
+      page.tsx                    # Admin dashboard
+      bookings/                   # Booking list + actions (BIS-664)
+      settings/                   # Availability config (BIS-660)
+    api/
+      booking/
+        route.ts                  # POST /api/booking, GET /api/booking
+        slots/route.ts            # GET /api/booking/slots?date=&tz=
+        [id]/route.ts             # GET/PATCH/DELETE /api/booking/:id
+        cron/reminders/route.ts   # Vercel Cron (BIS-667)
+      admin/auth/login/route.ts   # Admin password auth
+  lib/
+    db/
+      index.ts                    # better-sqlite3 singleton
+      migrate.ts                  # DDL migrations (auto-run on startup)
+      schema.ts                   # TypeScript types
+    slots/
+      engine.ts                   # Slot generation logic
+    adapters/
+      index.ts                    # Adapter registry (emitBookingConfirmed etc.)
+      kissinger.ts                # Optional Kissinger CRM adapter (BIS-666)
+  middleware.ts                   # JWT-based admin auth guard
+  vercel.json                     # Vercel Cron config
+  .env.example                    # Environment variable reference
+  __tests__/                      # Vitest tests
+```
+
+### Key env vars
+
+| Var | Required | Description |
+|-----|----------|-------------|
+| `ADMIN_PASSWORD` | Yes | Password for /admin login |
+| `SESSION_SECRET` | Yes | JWT signing key (32+ chars) |
+| `KISSINGER_GRAPHQL_URL` | No | Enable Kissinger CRM sync |
+| `DATABASE_PATH` | No | SQLite file path (default: ./data/bookings.db) |
+| `CRON_SECRET` | No | Authenticates /api/booking/cron/reminders |
+
+### Kissinger integration seam
+
+The booking core emits events via `lib/adapters/index.ts`. The Kissinger adapter
+(`lib/adapters/kissinger.ts`) is registered only when `KISSINGER_GRAPHQL_URL` is set.
+No Kissinger code is imported by the booking core. This seam can support future
+adapters (Notion, HubSpot, etc.) without modifying core.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- All times stored as UTC ISO-8601; displayed in visitor/host timezone via `Intl` APIs
+- SQLite via `better-sqlite3` (synchronous, zero-infra); switchable to Postgres via `DATABASE_URL`
+- Admin auth: HTTP-only JWT cookie, verified in `middleware.ts`
+- Adapter pattern: `registerBookingAdapter()` at startup; core emits events, adapters listen
+- Tests use in-memory SQLite (`:memory:`), never touch real DB
