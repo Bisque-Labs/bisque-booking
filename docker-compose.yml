@@ -1,51 +1,48 @@
+# bisque-booking — Docker Compose deployment
+# Runs the Next.js 14 app with SQLite persistence and a lightweight cron runner.
+#
+# Quick start:
+#   cp nextjs/.env.example .env && nano .env   # fill in required vars
+#   docker compose up -d
+
 services:
   app:
-    build: .
+    build:
+      context: ./nextjs
+      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "8000:8000"
-    environment:
-      DATABASE_URL: postgresql+asyncpg://bisque:${DB_PASSWORD:-bisque}@db:5432/bisque_booking
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
-      SMTP_HOST: ${SMTP_HOST:-mailpit}
-      SMTP_PORT: ${SMTP_PORT:-1025}
-      SMTP_USERNAME: ${SMTP_USERNAME:-}
-      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      FROM_EMAIL: ${FROM_EMAIL:-noreply@bisque-booking.local}
-      BASE_URL: ${BASE_URL:-http://localhost:8000}
-      DEBUG: ${DEBUG:-false}
-    depends_on:
-      db:
-        condition: service_healthy
+      - "3200:3000"      # host:container — 3200 avoids conflicts with other local services
     volumes:
-      - ./app:/app/app  # hot-reload in dev
-
-  db:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: bisque_booking
-      POSTGRES_USER: bisque
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-bisque}
+      - bisque_data:/app/data   # named volume for SQLite persistence
+    env_file:
+      - .env             # copy from nextjs/.env.example to .env at repo root
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bisque"]
-      interval: 5s
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
       timeout: 5s
-      retries: 5
-    ports:
-      - "5433:5432"  # expose on 5433 to avoid conflict with local postgres
+      retries: 3
+      start_period: 15s
 
-  mailpit:
-    image: axllent/mailpit:latest
+  cron:
+    image: mcuadros/ofelia:latest
     restart: unless-stopped
-    ports:
-      - "1025:1025"   # SMTP
-      - "8025:8025"   # Web UI at http://localhost:8025
+    depends_on:
+      app:
+        condition: service_healthy
+    command: daemon --docker
+    environment:
+      # Ofelia reads job config from labels on other containers, but we can
+      # also drive it via environment. We use a standalone ini approach here.
+      OFELIA_LOG_LEVEL: info
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./deploy/ofelia.ini:/etc/ofelia.ini:ro
+    # ofelia.ini references CRON_SECRET, pass it in so ofelia can substitute
+    env_file:
+      - .env
 
 volumes:
-  postgres_data:
+  bisque_data:
+    # Named volume — data persists across container restarts and rebuilds.
+    # To back up: docker compose exec app sqlite3 /app/data/bookings.db .dump > backup.sql
